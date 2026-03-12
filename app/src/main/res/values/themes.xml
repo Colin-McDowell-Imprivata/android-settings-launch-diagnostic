@@ -1,0 +1,16 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Base.Theme.AndroidSettingsLaunchDiagnostic" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Customize your light theme here. -->
+        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+    </style>
+
+    <style name="Theme.AndroidSettingsLaunchDiagnostic" parent="Base.Theme.AndroidSettingsLaunchDiagnostic" />
+
+    <!-- Transparent theme for TrampolineActivity — no visible UI. -->
+    <style name="Theme.AndroidSettingsLaunchDiagnostic.Trampoline" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">false</item>
+    </style>
+</resources>

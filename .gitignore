@@ -1,0 +1,30 @@
+# Build outputs
+*.iml
+.gradle/
+/build/
+app/build/
+/captures
+.externalNativeBuild/
+.cxx/
+
+# Local configuration (contains SDK path, not portable)
+local.properties
+
+# IDE
+/.idea/caches/
+/.idea/libraries/
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+/.idea/*.xml
+
+# Kotlin incremental build cache
+.kotlin/
+
+# macOS
+.DS_Store
+
+# Logcat captures — device-specific, large, not source
+*.logcat
+INVESTIGATION_PLAN.md

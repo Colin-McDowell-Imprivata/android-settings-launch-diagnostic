@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    AndroidSettingsLaunchDiagnostic - AndroidManifest.xml
+
+    DIAGNOSTIC INTENT
+    This manifest is deliberately minimal. The following attributes have been
+    intentionally OMITTED to baseline the bug scenario:
+
+      - android:taskAffinity     : not set (uses default task grouping)
+      - Special permissions      : none (Settings intents do not require them)
+      - Device admin / owner     : NOT a device owner app
+      - Lock Task Mode           : NOT enabled (lockTaskMode not set)
+      - Special window flags     : none
+
+    If the Settings-closes-immediately bug reproduces without ANY of the above,
+    it is a platform-level issue, not an app-specific issue.
+
+    To test different launchMode configurations on MainActivity, change it to:
+      - "singleInstance" (reproduces bug on affected devices)
+      - "singleTask"     (does not reproduce bug)
+      - "standard"       (baseline; remove attribute entirely)
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.AndroidSettingsLaunchDiagnostic">
+
+        <!--
+            launchMode="singleInstance" matches the configuration that triggers the bug.
+            Remove or change this to test other configurations.
+        -->
+        <activity
+            android:name=".MainActivity"
+            android:launchMode="singleInstance"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!--
+            Trampoline activity — no launchMode (standard), no taskAffinity.
+            Launches into a normal task so that startActivityForResult(Settings)
+            is issued from a non-singleInstance context.
+        -->
+        <activity
+            android:name=".TrampolineActivity"
+            android:theme="@style/Theme.AndroidSettingsLaunchDiagnostic.Trampoline"
+            android:exported="false" />
+
+        <!--
+            Minimal in-app target used to test whether the bug affects any
+            result-requesting launch from singleInstance, or only system activities.
+        -->
+        <activity
+            android:name=".DummyTargetActivity"
+            android:exported="false" />
+
+    </application>
+
+</manifest>
