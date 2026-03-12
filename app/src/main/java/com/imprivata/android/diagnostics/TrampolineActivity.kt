@@ -7,17 +7,11 @@ import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 
 /**
- * Transparent, no-UI trampoline used to test whether launching Settings from a
- * normal (non-singleInstance) task avoids the bug on affected devices.
+ * Transparent trampoline activity with a standard task affinity. Routes a Settings launch
+ * through a non-singleInstance task, then finishes to return control to MainActivity.
  *
- * Flow:
- *   MainActivity (singleInstance) --> startActivity(TrampolineActivity)
- *   TrampolineActivity (standard task) --> startActivityForResult(Settings)
- *   Settings --> onActivityResult() --> TrampolineActivity.finish()
- *   MainActivity.onResume() fires -- timing code evaluates the gap
- *
- * The Settings result is intentionally not forwarded back to MainActivity;
- * permission grant status is already checked in MainActivity.onResume().
+ * Flow: MainActivity → startActivity(TrampolineActivity) → startActivityForResult(Settings)
+ *       → onActivityResult() → setResult() + finish() → MainActivity.onResume()
  */
 class TrampolineActivity : AppCompatActivity() {
 
@@ -29,8 +23,6 @@ class TrampolineActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // No layout — transparent window, no visible UI.
-
         val settingsIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             intent.getParcelableExtra(EXTRA_SETTINGS_INTENT, Intent::class.java)
         } else {
@@ -57,7 +49,7 @@ class TrampolineActivity : AppCompatActivity() {
     @Suppress("DEPRECATION")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: android.content.Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        Log.i(TAG, "[$TAG] [Trampoline] onActivityResult resultCode=$resultCode — forwarding to caller and finishing")
+        Log.i(TAG, "[$TAG] [Trampoline] onActivityResult resultCode=$resultCode")
         setResult(resultCode, data)
         finish()
     }

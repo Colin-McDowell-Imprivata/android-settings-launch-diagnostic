@@ -5,13 +5,7 @@ import android.view.Gravity
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 
-/**
- * Minimal in-app target activity used to test whether the singleInstance
- * startActivityForResult() bug is specific to system/Settings activities or
- * affects any result-requesting launch from a singleInstance task.
- *
- * Press Back (or the system back gesture) to return a result to MainActivity.
- */
+/** In-app target for testing whether the bug affects all result launches or only system activities. */
 class DummyTargetActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {

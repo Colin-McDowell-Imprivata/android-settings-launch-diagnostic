@@ -1,26 +1,3 @@
-/**
- * Diagnostic app for the Android Settings launch bug on devices with launchMode="singleInstance".
- *
- * On affected Android 15 devices, calling startActivityForResult() to open a Settings screen
- * silently fails when the calling activity has launchMode="singleInstance". No exception is
- * thrown; the activity pauses and resumes immediately with nothing shown.
- *
- * Mode 1 - Direct: opens Settings straight from a button tap. Baseline only.
- * Mode 2 - Dialog Flow: replicates a production call chain where the Settings launch
- *   is called from inside an AlertDialog button callback. This is the pattern that
- *   triggers the bug.
- *
- * Toggles:
- *   FLAG_ACTIVITY_NEW_TASK          — known workaround, not deployed (security risk)
- *   registerForActivityResult       — modern API alternative to startActivityForResult()
- *   startActivity (fire-and-forget) — drops result request; confirmed fix on affected devices
- *   Handler.post() wrap             — defers startActivityForResult() by one frame
- *   Trampoline activity             — routes the launch through a standard-task activity
- *
- * Logcat filter:
- *   adb logcat -v time SettingsDiagnostic:V ActivityTaskManager:V ActivityManager:V WindowManager:V *:S
- */
-
 package com.imprivata.android.diagnostics
 
 import android.app.AlertDialog
@@ -48,8 +25,7 @@ import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
 
-    // registerForActivityResult launcher — must be initialized before onCreate
-    // Used when the "Use registerForActivityResult" toggle is on.
+    // Must be initialized before onCreate.
     private val settingsLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -70,14 +46,11 @@ class MainActivity : AppCompatActivity() {
         private const val RC_GENERAL_SETTINGS      = 1005
         private const val RC_DUMMY_ACTIVITY        = 1006
 
-        /**
-         * Pause/resume gaps shorter than this are flagged as the bug.
-         * Observed bug timing is ~250ms; 500ms gives margin over normal transitions.
-         */
+        // Observed bug timing ~250ms; 500ms gives comfortable margin.
         private const val QUICK_RESUME_THRESHOLD_MS = 500L
     }
 
-    // Data: describes one permission to test in Mode 2
+    // State
     //--------------------------------------------------------------------------
 
     private data class PermissionTest(
@@ -88,37 +61,16 @@ class MainActivity : AppCompatActivity() {
         val requestCode: Int
     )
 
-    // Mode 2 state machine
-    //--------------------------------------------------------------------------
-
-    /** IDLE: not running. DIALOG_SHOWING: waiting for user. SETTINGS_LAUNCHED: waiting for onResume. */
     private enum class FlowState { IDLE, DIALOG_SHOWING, SETTINGS_LAUNCHED }
 
-    /** Permissions queued for the Mode 2 flow. Populated on Start, dequeued as each dialog is confirmed. */
     private val pendingPermissions = LinkedList<PermissionTest>()
-
-    /** Current state of the Mode 2 flow. */
     private var flowState = FlowState.IDLE
-
-    /** Label of the permission most recently sent to Settings (for timing log). */
     private var inFlightLabel = ""
 
-    // Timing state (shared by both modes)
-    //--------------------------------------------------------------------------
-
-    /** Set in onPause(); cleared in onResume() after calculating elapsed time. */
     private var pauseTimestamp: Long = 0L
-
-    /** Label of the last Settings action launched (for timing annotation). */
     private var lastLaunchedLabel: String = ""
 
-    // Log buffer
-    //--------------------------------------------------------------------------
-
     private val logBuffer = StringBuilder()
-
-    // Views
-    //--------------------------------------------------------------------------
 
     private lateinit var tvDeviceInfo: TextView
     private lateinit var tvLog: TextView
@@ -179,12 +131,10 @@ class MainActivity : AppCompatActivity() {
             log("onResume() at ${resumeTs}ms")
         }
 
-        // Mode 2: advance the dialog flow if running.
-        // Only fire if waiting for Settings to return (SETTINGS_LAUNCHED).
-        // If a dialog is already on screen, the dialog callback drives the next step.
+        // Advance Mode 2 flow if we're returning from a Settings launch.
         if (flowState == FlowState.SETTINGS_LAUNCHED) {
             log("[Flow] Returned from Settings — checking next permission")
-            flowState = FlowState.IDLE   // reset before calling check (which may set DIALOG_SHOWING)
+            flowState = FlowState.IDLE
             checkNextSimulatedPermission()
         }
     }
@@ -250,21 +200,17 @@ class MainActivity : AppCompatActivity() {
 
     private fun wireButtons() {
 
-        // API method checkboxes are mutually exclusive — checking one unchecks the others.
-        // FLAG_ACTIVITY_NEW_TASK and Handler.post() are independent modifiers, not included here.
+        // API method options are mutually exclusive; Handler.post and NEW_TASK are independent modifiers.
         val exclusiveApiBoxes = listOf(cbDefaultApi, cbModernApi, cbFireAndForget, cbTrampoline)
         exclusiveApiBoxes.forEach { box ->
             box.setOnCheckedChangeListener { _, isChecked ->
                 if (isChecked) {
                     exclusiveApiBoxes.forEach { other -> if (other !== box) other.isChecked = false }
                 } else if (exclusiveApiBoxes.none { it.isChecked }) {
-                    // Prevent unchecking the last selected option — re-check it.
                     box.isChecked = true
                 }
             }
         }
-
-        // Mode 1 buttons
 
         findViewById<Button>(R.id.btn_accessibility).setOnClickListener {
             launchSettingsDirect("Accessibility Settings",
@@ -313,8 +259,6 @@ class MainActivity : AppCompatActivity() {
             launchSettings(intent, RC_DUMMY_ACTIVITY)
         }
 
-        // Mode 2 flow
-
         btnStartFlow.setOnClickListener {
             startDialogFlow()
         }
@@ -322,8 +266,6 @@ class MainActivity : AppCompatActivity() {
         btnStopFlow.setOnClickListener {
             stopDialogFlow()
         }
-
-        // Utilities
 
         findViewById<Button>(R.id.btn_clear).setOnClickListener {
             logBuffer.clear()
@@ -341,12 +283,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Mode 1: direct launch
+    // Mode 1 — Direct launch
     //--------------------------------------------------------------------------
 
-    /**
-     * Launches Settings directly from a button tap. Baseline only.
-     */
     @Suppress("DEPRECATION")
     private fun launchSettingsDirect(
         label: String,
@@ -372,12 +311,9 @@ class MainActivity : AppCompatActivity() {
         launchSettings(intent, requestCode)
     }
 
-    // Mode 2: dialog flow
+    // Mode 2 — Dialog flow
     //--------------------------------------------------------------------------
 
-    /**
-     * Builds the queue from the checkbox selections and kicks off the first dialog.
-     */
     private fun startDialogFlow() {
         if (flowState != FlowState.IDLE) {
             log("[Flow] Already running — tap Stop Flow first")
@@ -433,9 +369,6 @@ class MainActivity : AppCompatActivity() {
         checkNextSimulatedPermission()
     }
 
-    /**
-     * Shows the next permission dialog. Called from onResume() each time we return from Settings.
-     */
     private fun checkNextSimulatedPermission() {
         if (flowState != FlowState.IDLE) return
 
@@ -499,7 +432,7 @@ class MainActivity : AppCompatActivity() {
         log("[Flow] Stopped.")
     }
 
-    // Shared Settings launch
+    // Settings launch
     //--------------------------------------------------------------------------
 
     private fun launchSettings(intent: Intent, requestCode: Int) {
