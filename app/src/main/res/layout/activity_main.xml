@@ -25,58 +25,89 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Android Settings Launch Diagnostic"
-            android:textSize="18sp"
+            android:text="Settings Launch Diagnostic"
+            android:textSize="20sp"
             android:textStyle="bold"
-            android:paddingBottom="4dp" />
+            android:layout_marginBottom="2dp" />
 
         <!-- Device Info -->
         <TextView
             android:id="@+id/tv_device_info"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textSize="11sp"
+            android:textSize="12sp"
             android:fontFamily="monospace"
-            android:background="#EEEEEE"
-            android:padding="8dp"
-            android:layout_marginBottom="10dp" />
+            android:background="?attr/colorSurfaceVariant"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:padding="10dp"
+            android:layout_marginBottom="16dp" />
 
-        <!-- Workaround toggles -->
-        <CheckBox
-            android:id="@+id/cb_new_task"
+        <!-- API Method — select one -->
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Enable FLAG_ACTIVITY_NEW_TASK workaround (leave off to reproduce bug)"
-            android:textSize="12sp" />
+            android:text="API METHOD (select one)"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.1"
+            android:textColor="?attr/colorPrimary"
+            android:layout_marginBottom="4dp" />
+
+        <CheckBox
+            android:id="@+id/cb_default_api"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="startActivityForResult() — default"
+            android:checked="true"
+            android:textSize="13sp" />
 
         <CheckBox
             android:id="@+id/cb_modern_api"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Use registerForActivityResult() instead of startActivityForResult()"
-            android:textSize="12sp" />
+            android:textSize="13sp" />
 
         <CheckBox
             android:id="@+id/cb_fire_and_forget"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Use startActivity() — no result requested (fire-and-forget)"
-            android:textSize="12sp" />
-
-        <CheckBox
-            android:id="@+id/cb_handler_post"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Wrap startActivityForResult() in Handler.post() (deferred by one frame)"
-            android:textSize="12sp" />
+            android:text="Use startActivity() instead of startActivityForResult() (no result)"
+            android:textSize="13sp" />
 
         <CheckBox
             android:id="@+id/cb_trampoline"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Use trampoline activity (startActivityForResult from a normal task)"
-            android:textSize="12sp"
-            android:layout_marginBottom="12dp" />
+            android:text="Route through trampoline activity using startActivityForResult()"
+            android:textSize="13sp"
+            android:layout_marginBottom="10dp" />
+
+        <!-- Modifiers — independent, can combine with any API method above -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="MODIFIERS"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.1"
+            android:textColor="?attr/colorPrimary"
+            android:layout_marginBottom="4dp" />
+
+        <CheckBox
+            android:id="@+id/cb_new_task"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Add FLAG_ACTIVITY_NEW_TASK to intent"
+            android:textSize="13sp" />
+
+        <CheckBox
+            android:id="@+id/cb_handler_post"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Defer launch with Handler.post()"
+            android:textSize="13sp"
+            android:layout_marginBottom="16dp" />
 
         <!--
             Mode 1 - Direct (baseline).
@@ -86,21 +117,22 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Mode 1 — Direct Launch"
+            android:text="MODE 1 — DIRECT LAUNCH"
             android:textStyle="bold"
-            android:textSize="13sp"
-            android:textColor="#1565C0"
-            android:background="#E3F2FD"
-            android:padding="6dp"
-            android:layout_marginBottom="4dp" />
+            android:textSize="11sp"
+            android:letterSpacing="0.1"
+            android:textColor="?attr/colorPrimary"
+            android:background="?attr/colorPrimaryContainer"
+            android:padding="10dp"
+            android:layout_marginBottom="6dp" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Opens a Settings screen directly from a button tap. Use as a baseline."
-            android:textSize="11sp"
-            android:textColor="#555555"
-            android:layout_marginBottom="6dp" />
+            android:textSize="12sp"
+            android:textColor="?android:attr/textColorSecondary"
+            android:layout_marginBottom="8dp" />
 
         <Button
             android:id="@+id/btn_accessibility"
@@ -160,28 +192,29 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Mode 2 — Dialog Flow"
+            android:text="MODE 2 — DIALOG FLOW"
             android:textStyle="bold"
-            android:textSize="13sp"
-            android:textColor="#1B5E20"
-            android:background="#E8F5E9"
-            android:padding="6dp"
-            android:layout_marginBottom="4dp" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Mirrors a production flow: a confirmation dialog appears first, then Settings is opened from inside the dialog callback. This is the pattern that triggers the bug on affected devices."
             android:textSize="11sp"
-            android:textColor="#555555"
+            android:letterSpacing="0.1"
+            android:textColor="?attr/colorSecondary"
+            android:background="?attr/colorSecondaryContainer"
+            android:padding="10dp"
             android:layout_marginBottom="6dp" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Select which Settings screens to open:"
+            android:text="Mirrors a first-time permissions setup flow: a confirmation dialog appears first, then Settings is opened from inside the dialog callback."
             android:textSize="12sp"
-            android:layout_marginBottom="2dp" />
+            android:textColor="?android:attr/textColorSecondary"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Select which Settings screens to open:"
+            android:textSize="13sp"
+            android:layout_marginBottom="4dp" />
 
         <CheckBox
             android:id="@+id/cb_sim_accessibility"
@@ -189,7 +222,7 @@
             android:layout_height="wrap_content"
             android:text="Accessibility"
             android:checked="true"
-            android:textSize="12sp" />
+            android:textSize="13sp" />
 
         <CheckBox
             android:id="@+id/cb_sim_overlay"
@@ -197,7 +230,7 @@
             android:layout_height="wrap_content"
             android:text="Draw Over Other Apps"
             android:checked="false"
-            android:textSize="12sp" />
+            android:textSize="13sp" />
 
         <CheckBox
             android:id="@+id/cb_sim_notification_listener"
@@ -205,7 +238,7 @@
             android:layout_height="wrap_content"
             android:text="Notification Listener"
             android:checked="false"
-            android:textSize="12sp" />
+            android:textSize="13sp" />
 
         <CheckBox
             android:id="@+id/cb_sim_notification_settings"
@@ -213,8 +246,8 @@
             android:layout_height="wrap_content"
             android:text="Post Notifications"
             android:checked="false"
-            android:textSize="12sp"
-            android:layout_marginBottom="6dp" />
+            android:textSize="13sp"
+            android:layout_marginBottom="8dp" />
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -242,13 +275,23 @@
 
         </LinearLayout>
 
-        <!-- Log Controls -->
+        <!-- Log Section -->
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="EVENT LOG"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.1"
+            android:textColor="?attr/colorPrimary"
+            android:layout_marginBottom="6dp" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="4dp">
+            android:layout_marginBottom="6dp">
 
             <Button
                 android:id="@+id/btn_clear"
@@ -276,10 +319,10 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:fontFamily="monospace"
-            android:textSize="11sp"
-            android:textColor="#1A1A1A"
-            android:background="#FAFAFA"
-            android:padding="6dp"
+            android:textSize="12sp"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:background="?attr/colorSurfaceVariant"
+            android:padding="10dp"
             android:minHeight="200dp" />
 
     </LinearLayout>

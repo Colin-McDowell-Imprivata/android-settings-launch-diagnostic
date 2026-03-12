@@ -127,6 +127,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var cbFireAndForget: CheckBox
     private lateinit var cbHandlerPost: CheckBox
     private lateinit var cbTrampoline: CheckBox
+    private lateinit var cbDefaultApi: CheckBox
     private lateinit var cbSimAccessibility: CheckBox
     private lateinit var cbSimOverlay: CheckBox
     private lateinit var cbSimNotificationListener: CheckBox
@@ -224,6 +225,7 @@ class MainActivity : AppCompatActivity() {
         cbFireAndForget           = findViewById(R.id.cb_fire_and_forget)
         cbHandlerPost             = findViewById(R.id.cb_handler_post)
         cbTrampoline              = findViewById(R.id.cb_trampoline)
+        cbDefaultApi              = findViewById(R.id.cb_default_api)
         cbSimAccessibility        = findViewById(R.id.cb_sim_accessibility)
         cbSimOverlay              = findViewById(R.id.cb_sim_overlay)
         cbSimNotificationListener = findViewById(R.id.cb_sim_notification_listener)
@@ -247,6 +249,20 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun wireButtons() {
+
+        // API method checkboxes are mutually exclusive — checking one unchecks the others.
+        // FLAG_ACTIVITY_NEW_TASK and Handler.post() are independent modifiers, not included here.
+        val exclusiveApiBoxes = listOf(cbDefaultApi, cbModernApi, cbFireAndForget, cbTrampoline)
+        exclusiveApiBoxes.forEach { box ->
+            box.setOnCheckedChangeListener { _, isChecked ->
+                if (isChecked) {
+                    exclusiveApiBoxes.forEach { other -> if (other !== box) other.isChecked = false }
+                } else if (exclusiveApiBoxes.none { it.isChecked }) {
+                    // Prevent unchecking the last selected option — re-check it.
+                    box.isChecked = true
+                }
+            }
+        }
 
         // Mode 1 buttons
 
@@ -285,14 +301,15 @@ class MainActivity : AppCompatActivity() {
             lastLaunchedLabel = "[Mode 1] In-App Activity"
             val intent = Intent(this, DummyTargetActivity::class.java)
             if (cbNewTask.isChecked) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            val apiNote = if (cbModernApi.isChecked) " [API=registerForActivityResult]"
-                          else if (cbFireAndForget.isChecked) " [API=startActivity (fire-and-forget)]"
-                          else if (cbHandlerPost.isChecked) " [API=startActivityForResult (Handler.post)]"
-                          else if (cbTrampoline.isChecked) " [API=TrampolineActivity]"
-                          else " [API=startActivityForResult]"
-            val newTaskNote = if (cbNewTask.isChecked) " [FLAG_ACTIVITY_NEW_TASK=ON, workaround mode]"
-                              else " [FLAG_ACTIVITY_NEW_TASK=OFF, bug reproduction mode]"
-            log("  target=DummyTargetActivity$newTaskNote$apiNote")
+            val api = when {
+                cbModernApi.isChecked    -> "registerForActivityResult"
+                cbFireAndForget.isChecked -> "startActivity (no result)"
+                cbTrampoline.isChecked   -> "TrampolineActivity"
+                else                     -> "startActivityForResult"
+            }
+            val newTaskNote = if (cbNewTask.isChecked)    " [FLAG_ACTIVITY_NEW_TASK=ON]" else ""
+            val handlerNote = if (cbHandlerPost.isChecked) " [Handler.post=ON]" else ""
+            log("  target=DummyTargetActivity  API=$api$handlerNote$newTaskNote")
             launchSettings(intent, RC_DUMMY_ACTIVITY)
         }
 
@@ -486,96 +503,54 @@ class MainActivity : AppCompatActivity() {
     //--------------------------------------------------------------------------
 
     private fun launchSettings(intent: Intent, requestCode: Int) {
+        if (cbHandlerPost.isChecked) {
+            log("Handler.post() — deferring launch to next frame…")
+            Handler(Looper.getMainLooper()).post { doLaunch(intent, requestCode, deferred = true) }
+        } else {
+            doLaunch(intent, requestCode, deferred = false)
+        }
+    }
+
+    private fun doLaunch(intent: Intent, requestCode: Int, deferred: Boolean) {
         val before = nowMs()
+        val deferSuffix = if (deferred) " [via Handler.post]" else ""
+
+        fun onError(label: String, e: Exception) {
+            log("[ERROR] $label: ${e.message}")
+            Log.e(TAG, "[$TAG] $label", e)
+            pauseTimestamp = 0L
+            if (flowState == FlowState.SETTINGS_LAUNCHED) { flowState = FlowState.IDLE; checkNextSimulatedPermission() }
+        }
+
         if (cbFireAndForget.isChecked) {
             try {
                 startActivity(intent)
-                log("startActivity() returned in ${nowMs() - before}ms — waiting for onPause…")
-            } catch (e: android.content.ActivityNotFoundException) {
-                log("[ERROR] ActivityNotFoundException: ${e.message}")
-                Log.e(TAG, "[$TAG] ActivityNotFoundException", e)
-                pauseTimestamp = 0L
-                if (flowState == FlowState.SETTINGS_LAUNCHED) { flowState = FlowState.IDLE; checkNextSimulatedPermission() }
-            } catch (e: Exception) {
-                log("[ERROR] ${e.javaClass.simpleName}: ${e.message}")
-                Log.e(TAG, "[$TAG] Exception launching Settings", e)
-                pauseTimestamp = 0L
-                if (flowState == FlowState.SETTINGS_LAUNCHED) { flowState = FlowState.IDLE; checkNextSimulatedPermission() }
-            }
+                log("startActivity()$deferSuffix returned in ${nowMs() - before}ms — waiting for onPause…")
+            } catch (e: android.content.ActivityNotFoundException) { onError("ActivityNotFoundException", e) }
+              catch (e: Exception) { onError(e.javaClass.simpleName, e) }
         } else if (cbModernApi.isChecked) {
             try {
                 settingsLauncher.launch(intent)
-                log("settingsLauncher.launch() returned in ${nowMs() - before}ms — waiting for onPause…")
-            } catch (e: android.content.ActivityNotFoundException) {
-                log("[ERROR] ActivityNotFoundException: ${e.message}")
-                Log.e(TAG, "[$TAG] ActivityNotFoundException", e)
-                pauseTimestamp = 0L
-                if (flowState == FlowState.SETTINGS_LAUNCHED) { flowState = FlowState.IDLE; checkNextSimulatedPermission() }
-            } catch (e: Exception) {
-                log("[ERROR] ${e.javaClass.simpleName}: ${e.message}")
-                Log.e(TAG, "[$TAG] Exception launching Settings", e)
-                pauseTimestamp = 0L
-                if (flowState == FlowState.SETTINGS_LAUNCHED) { flowState = FlowState.IDLE; checkNextSimulatedPermission() }
-            }
-        } else if (cbHandlerPost.isChecked) {
-            log("Handler.post() — deferring startActivityForResult() to next frame…")
-            Handler(Looper.getMainLooper()).post {
-                val beforePost = nowMs()
-                @Suppress("DEPRECATION")
-                try {
-                    startActivityForResult(intent, requestCode)
-                    log("startActivityForResult() [via Handler.post] returned in ${nowMs() - beforePost}ms — waiting for onPause…")
-                } catch (e: android.content.ActivityNotFoundException) {
-                    log("[ERROR] ActivityNotFoundException: ${e.message}")
-                    Log.e(TAG, "[$TAG] ActivityNotFoundException", e)
-                    pauseTimestamp = 0L
-                    if (flowState == FlowState.SETTINGS_LAUNCHED) { flowState = FlowState.IDLE; checkNextSimulatedPermission() }
-                } catch (e: SecurityException) {
-                    log("[ERROR] SecurityException: ${e.message}")
-                    Log.e(TAG, "[$TAG] SecurityException", e)
-                    pauseTimestamp = 0L
-                    if (flowState == FlowState.SETTINGS_LAUNCHED) { flowState = FlowState.IDLE; checkNextSimulatedPermission() }
-                } catch (e: Exception) {
-                    log("[ERROR] ${e.javaClass.simpleName}: ${e.message}")
-                    Log.e(TAG, "[$TAG] Exception launching Settings", e)
-                    pauseTimestamp = 0L
-                    if (flowState == FlowState.SETTINGS_LAUNCHED) { flowState = FlowState.IDLE; checkNextSimulatedPermission() }
-                }
-            }
+                log("settingsLauncher.launch()$deferSuffix returned in ${nowMs() - before}ms — waiting for onPause…")
+            } catch (e: android.content.ActivityNotFoundException) { onError("ActivityNotFoundException", e) }
+              catch (e: Exception) { onError(e.javaClass.simpleName, e) }
         } else if (cbTrampoline.isChecked) {
             try {
                 val trampolineIntent = Intent(this, TrampolineActivity::class.java)
                     .putExtra(TrampolineActivity.EXTRA_SETTINGS_INTENT, intent)
                 @Suppress("DEPRECATION")
                 startActivityForResult(trampolineIntent, requestCode)
-                log("startActivityForResult(TrampolineActivity) returned in ${nowMs() - before}ms — waiting for onPause…")
-            } catch (e: Exception) {
-                log("[ERROR] ${e.javaClass.simpleName}: ${e.message}")
-                Log.e(TAG, "[$TAG] Exception launching Trampoline", e)
-                pauseTimestamp = 0L
-                if (flowState == FlowState.SETTINGS_LAUNCHED) { flowState = FlowState.IDLE; checkNextSimulatedPermission() }
-            }
+                log("startActivityForResult(TrampolineActivity)$deferSuffix returned in ${nowMs() - before}ms — waiting for onPause…")
+            } catch (e: Exception) { onError(e.javaClass.simpleName, e) }
         } else {
+            // Default — startActivityForResult()
             @Suppress("DEPRECATION")
             try {
                 startActivityForResult(intent, requestCode)
-                log("startActivityForResult() returned in ${nowMs() - before}ms — waiting for onPause…")
-            } catch (e: android.content.ActivityNotFoundException) {
-                log("[ERROR] ActivityNotFoundException: ${e.message}")
-                Log.e(TAG, "[$TAG] ActivityNotFoundException", e)
-                pauseTimestamp = 0L
-                if (flowState == FlowState.SETTINGS_LAUNCHED) { flowState = FlowState.IDLE; checkNextSimulatedPermission() }
-            } catch (e: SecurityException) {
-                log("[ERROR] SecurityException: ${e.message}")
-                Log.e(TAG, "[$TAG] SecurityException", e)
-                pauseTimestamp = 0L
-                if (flowState == FlowState.SETTINGS_LAUNCHED) { flowState = FlowState.IDLE; checkNextSimulatedPermission() }
-            } catch (e: Exception) {
-                log("[ERROR] ${e.javaClass.simpleName}: ${e.message}")
-                Log.e(TAG, "[$TAG] Exception launching Settings", e)
-                pauseTimestamp = 0L
-                if (flowState == FlowState.SETTINGS_LAUNCHED) { flowState = FlowState.IDLE; checkNextSimulatedPermission() }
-            }
+                log("startActivityForResult()$deferSuffix returned in ${nowMs() - before}ms — waiting for onPause…")
+            } catch (e: android.content.ActivityNotFoundException) { onError("ActivityNotFoundException", e) }
+              catch (e: SecurityException) { onError("SecurityException", e) }
+              catch (e: Exception) { onError(e.javaClass.simpleName, e) }
         }
     }
 
@@ -593,15 +568,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun logIntent(intent: Intent) {
-        val newTaskNote = if (cbNewTask.isChecked) " [FLAG_ACTIVITY_NEW_TASK=ON, workaround mode]"
-                          else " [FLAG_ACTIVITY_NEW_TASK=OFF, bug reproduction mode]"
-        val apiNote = if (cbModernApi.isChecked) " [API=registerForActivityResult]"
-                      else if (cbFireAndForget.isChecked) " [API=startActivity (fire-and-forget)]"
-                      else if (cbHandlerPost.isChecked) " [API=startActivityForResult (Handler.post)]"
-                      else if (cbTrampoline.isChecked) " [API=TrampolineActivity]"
-                      else " [API=startActivityForResult]"
+        val api = when {
+            cbModernApi.isChecked    -> "registerForActivityResult"
+            cbFireAndForget.isChecked -> "startActivity (no result)"
+            cbTrampoline.isChecked   -> "TrampolineActivity"
+            else                     -> "startActivityForResult"
+        }
+        val newTaskNote  = if (cbNewTask.isChecked)    " [FLAG_ACTIVITY_NEW_TASK=ON]" else ""
+        val handlerNote  = if (cbHandlerPost.isChecked) " [Handler.post=ON]" else ""
         log("  action=${intent.action}")
-        log("  data=${intent.data ?: "(none)"}$newTaskNote$apiNote")
+        log("  data=${intent.data ?: "(none)"}  API=$api$handlerNote$newTaskNote")
     }
 
     // Logging
@@ -614,8 +590,6 @@ class MainActivity : AppCompatActivity() {
         logBuffer.appendLine(line)
         runOnUiThread {
             tvLog.text = logBuffer.toString()
-            val sv = findViewById<android.widget.ScrollView>(R.id.scroll_view_log)
-            sv?.post { sv.fullScroll(android.widget.ScrollView.FOCUS_DOWN) }
         }
     }
 
